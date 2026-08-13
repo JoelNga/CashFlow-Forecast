@@ -29,7 +29,18 @@ function daysInMonth(year: number, month: number): number {
     return new Date(year, month + 1, 0).getDate()
 }
 
-function
+function annualOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): string[] {
+    const [, am, ad] = entry.anchorDate.split('-').map(Number)
+    const results: string[] = []
+    const firstYear = Math.min(windowStart.getFullYear(), windowEnd.getFullYear())
+    const lastYear = windowEnd.getFullYear()
+    for (let y = firstYear; y <= lastYear; y += 1) {
+        const day = Math.min(ad, daysInMonth(y, am - 1))
+        const occ = new Date(y, am - 1, day)
+        if (occ >= windowStart && occ <= windowEnd) results.push(toDateString(occ))
+    }
+    return results
+}
 
 function monthlyOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): string[] {
     const [, , ad] = entry.anchorDate.split('-').map(Number)
@@ -58,24 +69,47 @@ function weeklyOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): st
     return results
 }
 
-function dailyOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): string[](
+function dailyOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): string[] {
     const anchor = parseDate(entry.anchorDate)
     const results: string[] = []
     const occ = anchor > windowStart ? new Date(anchor) : new Date(windowStart)
     while (occ <= windowEnd) {
-
+        if (occ >= windowStart) results.push(toDateString(occ))
+        occ.setDate(occ.getDate() + 1)
+    }
+    return results;
 }
-)
 
-export function getOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): string[] {
-    switch (entry.cycle) {
+function onceOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): string[] {
+    const occ = parseDate(entry.anchorDate)
+    return occ >= windowStart && occ <= windowEnd ? [toDateString(occ)] : []
+}
+
+function getOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): string[] {
+    switch (entry.frequency) {
+        case 'daily':
+            return dailyOccurrences(entry, windowStart, windowEnd)
+        case 'weekly':
+            return weeklyOccurrences(entry, windowStart, windowEnd)
         case 'monthly':
             return monthlyOccurrences(entry, windowStart, windowEnd)
-        case 'weekly':
-            return [] // not done
         case 'annual':
-            return [] // not done
+            return annualOccurrences(entry, windowStart, windowEnd)
+        case 'once':
+            return onceOccurrences(entry, windowStart, windowEnd)
         default:
-            throw new Error(`Unhandled cycle: ${entry.cycle}`)
+            throw new Error(`Unhandled frequency: ${entry.frequency}`)
     }
+}
+
+function netOf(type: Entry['type'], amount: number): number {
+    return (type === 'income' ? 1 : -1) * Math.abs(amount)
+}
+
+function logNet(log: DailyLog): number {
+    return netOf(log.type, log.amount)
+}
+
+function logNetOnDate(logs: DailyLog[], date: string): number {
+    return logs.reduce((sum, log) => (log.date === date ? sum + logNet(log) : sum), 0)
 }

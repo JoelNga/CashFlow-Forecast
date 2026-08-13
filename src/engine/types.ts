@@ -1,4 +1,4 @@
-export type CycleType = 'weekly' | 'monthly' | 'annual';
+export type Frequency = 'daily' | 'weekly' | 'monthly' | 'annual' | 'once';
 
 export type EntryType = 'income' | 'expense'
 
@@ -7,7 +7,7 @@ export interface Entry {
     label: string;
     amount: number;
     type: EntryType;
-    cycle: CycleType;
+    frequency: Frequency;
     anchorDate: string;
 }
 
