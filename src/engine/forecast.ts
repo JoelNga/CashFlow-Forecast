@@ -27,14 +27,18 @@ function monthlyOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): s
     return results
 }
 
+function weeklyOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): string[] {
+    const
+}
+
 export function getOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): string[] {
     switch (entry.cycle) {
         case 'monthly':
             return monthlyOccurrences(entry, windowStart, windowEnd)
         case 'weekly':
-            return [] // TODO
+            return [] // not done
         case 'annual':
-            return [] // TODO
+            return [] // not done
         default:
             throw new Error(`Unhandled cycle: ${entry.cycle}`)
     }
