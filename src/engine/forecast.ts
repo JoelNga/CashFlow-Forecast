@@ -1,4 +1,11 @@
-import type { Entry } from './types'
+import type {
+    DailyBalance,
+    DailyLog,
+    DayActivityItem,
+    Entry,
+    ForecastInput,
+    ForecastResult,
+} from './types'
 
 function toDateString(d: Date): string {
     const y = d.getFullYear()
@@ -7,9 +14,22 @@ function toDateString(d: Date): string {
     return `${y}-${m}-${day}`
 }
 
+function parseDate(s: string): Date {
+    const [y, m, d] = s.split('-').map(Number)
+    return new Date(y, m - 1, d)
+}
+
+function addDays(d: Date, n: number): Date {
+    const next = new Date(d)
+    next.setDate(next.getDate() + n)
+    return next
+}
+
 function daysInMonth(year: number, month: number): number {
     return new Date(year, month + 1, 0).getDate()
 }
+
+function
 
 function monthlyOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): string[] {
     const [, , ad] = entry.anchorDate.split('-').map(Number)
@@ -28,8 +48,24 @@ function monthlyOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): s
 }
 
 function weeklyOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): string[] {
-    const
+    const anchor = parseDate(entry.anchorDate)
+    const results: string[] = []
+    const occ = new Date(anchor)
+    while (occ <= windowEnd) {
+        if (occ >= windowStart) results.push(toDateString(occ))
+        occ.setDate(occ.getDate() + 7)
+    }
+    return results
 }
+
+function dailyOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): string[](
+    const anchor = parseDate(entry.anchorDate)
+    const results: string[] = []
+    const occ = anchor > windowStart ? new Date(anchor) : new Date(windowStart)
+    while (occ <= windowEnd) {
+
+}
+)
 
 export function getOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): string[] {
     switch (entry.cycle) {
