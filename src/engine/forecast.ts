@@ -113,3 +113,117 @@ function logNet(log: DailyLog): number {
 function logNetOnDate(logs: DailyLog[], date: string): number {
     return logs.reduce((sum, log) => (log.date === date ? sum + logNet(log) : sum), 0)
 }
+
+function projectedAverage(logs: DailyLog[], today: Date): number {
+    const windowStart = addDays(today, -30)
+    const windowEnd = addDays(today, -1)
+    const dayNets = new Map<string, number>()
+    for (const log of logs) {
+        const date = parseDate(log.date)
+        if (date < windowStart || date > windowEnd) continue
+        const key = toDateString(date)
+        dayNets.set(key, (dayNets.get(key) ?? 0) + logNet(log))
+    }
+    if (dayNets.size === 0) {
+        return logNetOnDate(logs, toDateString(today))
+    }
+    let total = 0
+    for (const net of dayNets.values()) total += net
+    return total / dayNets.size
+}
+
+export function runForecast(input: ForecastInput): ForecastResult {
+    const start = parseDate(input.startDate)
+    const end = addDays(start, input.windowDays - 1)
+    const reference = parseDate(input.referenceDate)
+
+    const deltas = new Map<string, number>()
+    for (const entry of input.entries) {
+        const delta = netOf(entry.type, entry.amount)
+        for (const date of getOccurrences(entry, start, end)) {
+            deltas.set(date, (deltas.get(date) ?? 0) + delta)
+        }
+    }
+
+    const todayLogNet = logNetOnDate(input.logs, toDateString(reference))
+    const projAvg = projectedAverage(input.logs, reference)
+
+    const series: DailyBalance[] = []
+    let balance = input.startingBalance
+    const cursor = new Date(start)
+    while (cursor <= end) {
+        const date = toDateString(cursor)
+        const routine = deltas.get(date) ?? 0
+        const realSlice = cursor > reference ? projAvg : logNetOnDate(input.logs, date)
+        const activity = routine + realSlice
+        balance += activity
+        series.push({ date, balance, activity })
+        cursor.setDate(cursor.getDate() + 1)
+    }
+
+    let lowPoint: DailyBalance =
+        series.length > 0
+            ? series[0]
+            : { date: toDateString(start), balance: input.startingBalance, activity: 0 }
+    for (const point of series) {
+        if (point.balance < lowPoint.balance) lowPoint = point
+    }
+
+    return { series, lowPoint, projectedDailyAverage: projAvg, todayLogNet }
+}
+
+const FREQUENCY_LABELS: Record<Entry['frequency'], string> = {
+    daily: 'daily',
+    weekly: 'weekly',
+    monthly: 'monthly',
+    annual: 'annual',
+    once: 'one-off',
+}
+
+function dayWindow(input: ForecastInput): [Date, Date] {
+    const start = parseDate(input.startDate)
+    return [start, addDays(start, input.windowDays - 1)]
+}
+
+export function listDayActivity(input: ForecastInput, date: string): DayActivityItem[] {
+    const [start, end] = dayWindow(input)
+    const reference = parseDate(input.referenceDate)
+    const items: DayActivityItem[] = []
+
+    for (const entry of input.entries) {
+        if (!getOccurrences(entry, start, end).includes(date)) continue
+        items.push({
+            id: `${entry.id}:${date}`,
+            source: 'entry',
+            label: entry.label,
+            sub: `${FREQUENCY_LABELS[entry.frequency]} · from ${entry.anchorDate}`,
+            amount: netOf(entry.type, entry.amount),
+        })
+    }
+
+    for (const log of input.logs) {
+        if (log.date !== date || parseDate(log.date) > reference) continue
+        items.push({
+            id: log.id,
+            source: 'log',
+            label: log.note ?? (log.type === 'income' ? 'Received' : 'Spent'),
+            sub: 'logged',
+            amount: logNet(log),
+        })
+    }
+
+    if (parseDate(date) > reference) {
+        const avg = projectedAverage(input.logs, reference)
+        if (avg !== 0) {
+            items.push({
+                id: `average:${date}`,
+                source: 'average',
+                label: 'Projected daily average',
+                sub: 'trailing 30 logged days',
+                amount: avg,
+            })
+        }
+    }
+
+    return items
+}
