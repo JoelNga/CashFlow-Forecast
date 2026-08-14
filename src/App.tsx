@@ -1,122 +1,155 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useMemo, useState } from 'react'
+import CalendarView from './components/CalendarView'
+import DailyLogForm from './components/DailyLogForm'
+import ForecastChart from './components/ForecastChart'
+import IncomeExpenseForm, { type Settings } from './components/IncomeExpenseForm'
+import LowPointCallout from './components/LowPointCallout'
+import PacingIndicator from './components/PacingIndicator'
+import { runForecast } from './engine/forecast'
+import type { DailyLog, Entry, ForecastInput } from './engine/types'
 import './App.css'
 
-function App() {
-  const [count, setCount] = useState(0)
+type View = 'chart' | 'calendar'
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+function today(): string {
+    const d = new Date()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${d.getFullYear()}-${m}-${day}`
 }
 
-export default App
+function parseYmd(s: string): Date {
+    const [y, m, d] = s.split('-').map(Number)
+    return new Date(y, m - 1, d)
+}
+
+function fmtYmd(d: Date): string {
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${d.getFullYear()}-${m}-${day}`
+}
+
+function shiftDate(s: string, days: number): string {
+    const d = parseYmd(s)
+    d.setDate(d.getDate() + days)
+    return fmtYmd(d)
+}
+
+function windowEnd(s: string, days: number): string {
+    return shiftDate(s, days - 1)
+}
+
+export default function App() {
+    const [settings, setSettings] = useState<Settings>({
+        startingBalance: 500,
+        startDate: today(),
+        windowDays: 30,
+    })
+    const [entries, setEntries] = useState<Entry[]>([])
+    const [logs, setLogs] = useState<DailyLog[]>([])
+    const [view, setView] = useState<View>('chart')
+
+    const referenceDate = today()
+    const todayStr = referenceDate
+
+    const forecastInput = useMemo<ForecastInput>(
+        () => ({
+            startingBalance: settings.startingBalance,
+            startDate: settings.startDate,
+            windowDays: settings.windowDays,
+            referenceDate,
+            entries,
+            logs,
+        }),
+        [settings.startingBalance, settings.startDate, settings.windowDays, referenceDate, entries, logs],
+    )
+
+    const result = useMemo(() => runForecast(forecastInput), [forecastInput])
+
+    const todayInWindow =
+        todayStr >= settings.startDate && todayStr <= windowEnd(settings.startDate, settings.windowDays)
+
+    const shiftWindow = (days: number) =>
+        setSettings((s) => ({ ...s, startDate: shiftDate(s.startDate, days) }))
+
+    return (
+        <div className="app">
+            <header className="app-header">
+                <h1>Cash-Flow Forecaster</h1>
+                <p>
+                    Plan your income and bills, then log real daily spending so projections for future
+                    days reflect how you actually live.
+                </p>
+            </header>
+            <main className="app-main">
+                <div className="left-col">
+                    <IncomeExpenseForm
+                        settings={settings}
+                        onSettingsChange={setSettings}
+                        entries={entries}
+                        onEntriesChange={setEntries}
+                    />
+                    <DailyLogForm logs={logs} onChange={setLogs} />
+                </div>
+                <div className="results">
+                    {todayInWindow && (
+                        <PacingIndicator
+                            projectedDailyAverage={result.projectedDailyAverage}
+                            todayLogNet={result.todayLogNet}
+                        />
+                    )}
+                    <LowPointCallout lowPoint={result.lowPoint} />
+                    <div className="results-controls">
+                        <div className="view-toggle">
+                            <button
+                                type="button"
+                                className={view === 'chart' ? 'on' : ''}
+                                onClick={() => setView('chart')}
+                            >
+                                Line chart
+                            </button>
+                            <button
+                                type="button"
+                                className={view === 'calendar' ? 'on' : ''}
+                                onClick={() => setView('calendar')}
+                            >
+                                Calendar
+                            </button>
+                        </div>
+                        <div className="pan-controls">
+                            <button type="button" onClick={() => shiftWindow(-settings.windowDays)}>
+                                &larr; prev
+                            </button>
+                            <button
+                                type="button"
+                                className="on"
+                                onClick={() => setSettings((s) => ({ ...s, startDate: todayStr }))}
+                            >
+                                Today
+                            </button>
+                            <button type="button" onClick={() => shiftWindow(settings.windowDays)}>
+                                next &rarr;
+                            </button>
+                        </div>
+                    </div>
+                    {view === 'chart' ? (
+                        <ForecastChart series={result.series} lowPoint={result.lowPoint} />
+                    ) : (
+                        <CalendarView
+                            input={forecastInput}
+                            series={result.series}
+                            lowPoint={result.lowPoint}
+                            today={todayStr}
+                        />
+                    )}
+                </div>
+            </main>
+            <footer className="app-footer">
+                Forecasts apply transactions at the start of each day. Days up to today use real logged
+                activity; future days add the projected daily average (trailing 30 logged days). Monthly
+                and annual items anchored on the 29th&ndash;31st fall back to the last day of shorter
+                months.
+            </footer>
+        </div>
+    )
+}
