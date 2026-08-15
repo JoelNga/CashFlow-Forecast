@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import CalendarView from './components/CalendarView'
 import DailyLogForm from './components/DailyLogForm'
 import ForecastChart from './components/ForecastChart'
@@ -7,6 +7,7 @@ import LowPointCallout from './components/LowPointCallout'
 import PacingIndicator from './components/PacingIndicator'
 import { runForecast } from './engine/forecast'
 import type { DailyLog, Entry, ForecastInput } from './engine/types'
+import useLocalStorage from './hooks/useLocalStorage'
 import './App.css'
 
 type View = 'chart' | 'calendar'
@@ -40,14 +41,14 @@ function windowEnd(s: string, days: number): string {
 }
 
 export default function App() {
-    const [settings, setSettings] = useState<Settings>({
+    const [settings, setSettings] = useLocalStorage<Settings>('cashflow.settings', {
         startingBalance: 500,
         startDate: today(),
         windowDays: 30,
     })
-    const [entries, setEntries] = useState<Entry[]>([])
-    const [logs, setLogs] = useState<DailyLog[]>([])
-    const [view, setView] = useState<View>('chart')
+    const [entries, setEntries] = useLocalStorage<Entry[]>('cashflow.entries', [])
+    const [logs, setLogs] = useLocalStorage<DailyLog[]>('cashflow.logs', [])
+    const [view, setView] = useLocalStorage<View>('cashflow.view', 'chart')
 
     const referenceDate = today()
     const todayStr = referenceDate
