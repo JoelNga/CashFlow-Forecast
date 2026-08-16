@@ -10,7 +10,6 @@ line chart and an expandable calendar view, and pan the window backwards/forward
 npm install
 npm run dev      # dev server
 npm run lint     # oxlint
-npm run build    # tsc + vite build
 ```
 
 ## How the forecast works
