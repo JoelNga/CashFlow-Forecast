@@ -32,7 +32,7 @@ function daysInMonth(year: number, month: number): number {
 function annualOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): string[] {
     const [, am, ad] = entry.anchorDate.split('-').map(Number)
     const results: string[] = []
-    const firstYear = Math.min(windowStart.getFullYear(), windowEnd.getFullYear())
+    const firstYear = parseDate(entry.anchorDate).getFullYear()
     const lastYear = windowEnd.getFullYear()
     for (let y = firstYear; y <= lastYear; y += 1) {
         const day = Math.min(ad, daysInMonth(y, am - 1))
@@ -43,10 +43,11 @@ function annualOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): st
 }
 
 function monthlyOccurrences(entry: Entry, windowStart: Date, windowEnd: Date): string[] {
+    const anchor = parseDate(entry.anchorDate)
     const [, , ad] = entry.anchorDate.split('-').map(Number)
     const results: string[] = []
-    let y = windowStart.getFullYear()
-    let m = windowStart.getMonth()          // 0-indexed: Jan = 0
+    let y = anchor.getFullYear()
+    let m = anchor.getMonth()
     while (true) {
         const day = Math.min(ad, daysInMonth(y, m))   // THE clamp, in one line
         const occ = new Date(y, m, day)
